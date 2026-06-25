@@ -1,3 +1,6 @@
+// Force Vercel to bundle the PDF.js worker
+import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
+
 if (typeof global.DOMMatrix === 'undefined') {
   global.DOMMatrix = class DOMMatrix {};
 }
