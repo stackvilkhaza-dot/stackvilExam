@@ -218,7 +218,7 @@ export const uploadPdf = async (req, res) => {
             await parser.destroy();
         } catch (parseError) {
             console.error(parseError);
-            return res.status(500).json({ message: 'Error parsing PDF file' });
+            return res.status(500).json({ message: `Error parsing PDF file: ${parseError.message} | Stack: ${parseError.stack}` });
         }
 
         const regex = /(?:\d+\.\s*)([\s\S]*?)(?=[A-D]\.\s*)\s*A\.\s*([\s\S]*?)(?=\s*B\.\s*)\s*B\.\s*([\s\S]*?)(?=\s*C\.\s*)\s*C\.\s*([\s\S]*?)(?=\s*D\.\s*)\s*D\.\s*([\s\S]*?)(?=\s*Answer:\s*)\s*Answer:\s*([A-D])/g;

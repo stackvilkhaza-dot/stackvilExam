@@ -1,2 +1,3 @@
-import pdfParse from 'pdf-parse';
-console.log(typeof pdfParse);
+import * as pdfParse from 'pdf-parse';
+
+console.log(pdfParse);
