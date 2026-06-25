@@ -32,7 +32,7 @@ export const getExamQuestions = async (req, res) => {
         // If no specific assignment, we fall back to the global active set (or return error if strict)
         // Based on plan: "Block them with an error message saying 'No exam assigned to this email'."
         if (!examSetIdToUse) {
-            return res.status(403).json({ message: 'No specific exam has been assigned to this email address.' });
+            return res.status(403).json({ message: 'test not assigned' });
         }
 
         const questions = await Question.find({ examSetId: examSetIdToUse }).select('-correctAnswer -createdAt -__v');
