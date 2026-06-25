@@ -5,9 +5,10 @@ import { Toaster } from 'react-hot-toast';
 import Instructions from './pages/Candidate/Instructions';
 import Exam from './pages/Candidate/Exam';
 import SubmissionCompleted from './pages/Candidate/SubmissionCompleted';
+import CodingRound from './pages/Candidate/CodingRound';
 
 // Admin Pages
-import AdminLogin from './pages/Admin/AdminLogin';
+import AdminLogin from './pages/Admin/Login';
 import Dashboard from './pages/Admin/Dashboard';
 import Candidates from './pages/Admin/Candidates';
 import CandidateProfile from './pages/Admin/CandidateProfile';
@@ -27,6 +28,7 @@ function App() {
         {/* Candidate Routes */}
         <Route path="/" element={<Instructions />} />
         <Route path="/exam" element={<Exam />} />
+        <Route path="/coding-round" element={<CodingRound />} />
         <Route path="/submitted" element={<SubmissionCompleted />} />
 
         {/* Admin Routes */}

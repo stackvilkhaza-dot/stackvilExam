@@ -39,6 +39,11 @@ const resultSchema = new mongoose.Schema({
     submittedAt: {
         type: Date,
         default: Date.now,
+    },
+    codingRound: {
+        html: { type: String, default: '' },
+        css: { type: String, default: '' },
+        js: { type: String, default: '' }
     }
 });
 

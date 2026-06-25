@@ -307,14 +307,12 @@ const Exam = () => {
       });
       
       localStorage.removeItem('examProgress');
-      localStorage.removeItem('candidateInfo');
+      // Keep candidateInfo for coding round
       
-      // Exit fullscreen
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(err => console.log(err));
-      }
+      // Exit fullscreen (Optional: might want to stay in fullscreen for coding round)
+      // Since coding round is still part of the exam, we shouldn't exit fullscreen yet.
       
-      navigate('/submitted');
+      navigate('/coding-round');
     } catch (error) {
       toast.error('Failed to submit exam. Please try again.');
       setIsSubmitting(false);

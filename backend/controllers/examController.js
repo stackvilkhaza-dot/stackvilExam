@@ -126,3 +126,38 @@ export const loginCandidate = async (req, res) => {
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
+// @desc    Submit coding round
+// @route   POST /api/exam/submit-coding
+// @access  Public
+export const submitCoding = async (req, res) => {
+    const { candidateEmail, html, css, js } = req.body;
+
+    if (!candidateEmail) {
+        return res.status(400).json({ message: 'Missing candidate email' });
+    }
+
+    try {
+        // Find the most recent result for this candidate and update it
+        const result = await Result.findOneAndUpdate(
+            { candidateEmail: candidateEmail.toLowerCase().trim() },
+            { 
+                $set: { 
+                    'codingRound.html': html || '',
+                    'codingRound.css': css || '',
+                    'codingRound.js': js || ''
+                }
+            },
+            { new: true, sort: { submittedAt: -1 } }
+        );
+
+        if (!result) {
+            return res.status(404).json({ message: 'No existing exam result found for this candidate to attach coding round to.' });
+        }
+
+        res.status(200).json({ message: 'Coding round submitted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};

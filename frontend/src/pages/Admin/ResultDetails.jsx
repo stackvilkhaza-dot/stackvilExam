@@ -119,6 +119,65 @@ const ResultDetails = () => {
           ))}
         </ul>
       </div>
+
+      {/* Coding Round Submission */}
+      {result.codingRound && (result.codingRound.html || result.codingRound.css || result.codingRound.js) && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b">
+            <h2 className="font-semibold text-gray-800">Round 2: UI/UX Coding Submission</h2>
+          </div>
+          <div className="flex flex-col md:flex-row h-[600px]">
+            {/* Code Tabs */}
+            <div className="w-full md:w-1/2 flex flex-col border-r border-gray-200 bg-gray-50">
+              <div className="flex-1 p-4 overflow-y-auto">
+                <h3 className="font-bold text-sm text-gray-700 mb-2">HTML</h3>
+                <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs mb-4 overflow-x-auto">
+                  <code>{result.codingRound.html || 'No HTML provided.'}</code>
+                </pre>
+                
+                <h3 className="font-bold text-sm text-gray-700 mb-2">CSS</h3>
+                <pre className="bg-gray-800 text-blue-300 p-3 rounded text-xs mb-4 overflow-x-auto">
+                  <code>{result.codingRound.css || 'No CSS provided.'}</code>
+                </pre>
+                
+                <h3 className="font-bold text-sm text-gray-700 mb-2">JavaScript</h3>
+                <pre className="bg-gray-800 text-yellow-300 p-3 rounded text-xs overflow-x-auto">
+                  <code>{result.codingRound.js || 'No JS provided.'}</code>
+                </pre>
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="w-full md:w-1/2 flex flex-col bg-white">
+              <div className="p-2 bg-gray-100 border-b text-center font-medium text-xs text-gray-500">
+                Live Preview Output
+              </div>
+              <iframe
+                title="Live Preview"
+                sandbox="allow-scripts"
+                className="w-full flex-1 border-none"
+                srcDoc={`
+                  <html>
+                    <head>
+                      <style>${result.codingRound.css}</style>
+                    </head>
+                    <body>
+                      ${result.codingRound.html}
+                      <script>
+                        try {
+                          ${result.codingRound.js}
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      </script>
+                    </body>
+                  </html>
+                `}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
