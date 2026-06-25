@@ -488,14 +488,19 @@ const Exam = () => {
         <div className="p-6 bg-gray-50 border-t flex justify-end items-center sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
           <button
             onClick={() => {
-              if (window.confirm("Are you sure you want to submit the exam?")) {
+              if (window.confirm("Ready to proceed to Round 2 (Coding Round)? You cannot return to change your answers.")) {
                 handleSubmit(false);
               }
             }}
             disabled={isSubmitting}
-            className="px-8 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors text-lg shadow-sm"
+            className="px-8 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors text-lg shadow-sm flex items-center space-x-2"
           >
-            {isSubmitting ? 'Submitting...' : 'Final Submit Exam'}
+            <span>{isSubmitting ? 'Saving...' : 'Next (Coding Round)'}</span>
+            {!isSubmitting && (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
