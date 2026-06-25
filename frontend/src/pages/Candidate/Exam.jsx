@@ -192,7 +192,7 @@ const Exam = () => {
 
         setStream(localStream);
 
-        const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const socketUrl = import.meta.env.MODE === 'production' ? '/_/backend' : 'http://localhost:5000';
         newSocket = io(socketUrl);
         setSocket(newSocket);
 
