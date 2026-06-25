@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 export const getExamQuestions = async (req, res) => {
     try {
         const email = req.query.email?.toLowerCase().trim();
-        
+
         let examSetIdToUse;
 
         if (email) {
@@ -32,7 +32,7 @@ export const getExamQuestions = async (req, res) => {
         // If no specific assignment, we fall back to the global active set (or return error if strict)
         // Based on plan: "Block them with an error message saying 'No exam assigned to this email'."
         if (!examSetIdToUse) {
-            return res.status(403).json({ message: 'test not assigned' });
+            return res.status(403).json({ message: 'NO EXAM IS CURRENTLY ASSIGNED.' });
         }
 
         const questions = await Question.find({ examSetId: examSetIdToUse }).select('-correctAnswer -createdAt -__v');
@@ -64,7 +64,7 @@ export const submitExam = async (req, res) => {
             }
 
             const isCorrect = question.correctAnswer === ans.selectedAnswer;
-            
+
             if (isCorrect) {
                 correctCount++;
                 score += question.marks;
@@ -106,7 +106,7 @@ export const loginCandidate = async (req, res) => {
 
     try {
         const candidate = await Candidate.findOne({ email: email.toLowerCase().trim() });
-        
+
         if (!candidate) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
