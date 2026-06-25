@@ -16,6 +16,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Strip Vercel route prefix if present
+app.use((req, res, next) => {
+    if (req.url.startsWith('/_/backend')) {
+        req.url = req.url.replace('/_/backend', '');
+    }
+    next();
+});
+
 // Routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/exam', examRoutes);
