@@ -7,7 +7,7 @@ const connectDB = async () => {
             console.error("Error: MONGODB_URI environment variable is missing.");
             return;
         }
-        const conn = await mongoose.connect(uri);
+        const conn = await mongoose.connect(uri, { dbName: 'stack-exam-portal' });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     } catch (error) {
         console.error(`Error connecting to MongoDB: ${error.message}`);
