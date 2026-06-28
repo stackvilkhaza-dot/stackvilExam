@@ -275,19 +275,20 @@ const CodingRound = () => {
       localStorage.setItem('examEndTime', endTime.toString());
     }
 
+    let timerInterval;
     const updateTimer = () => {
       const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
       setTimeLeft(remaining);
       
       if (remaining <= 0) {
-        clearInterval(timerInterval);
+        if (timerInterval) clearInterval(timerInterval);
         toast.error('Time is up! Auto-submitting exam...', { duration: 5000 });
         document.getElementById('auto-submit-btn')?.click();
       }
     };
 
     updateTimer();
-    const timerInterval = setInterval(updateTimer, 1000);
+    timerInterval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(timerInterval);
   }, [challenges.length]);
