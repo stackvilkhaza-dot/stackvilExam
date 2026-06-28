@@ -1,9 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Editor from '@monaco-editor/react';
 import api from '../../services/api';
 import { io } from 'socket.io-client';
+
+const VideoPlayer = ({ stream }) => {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      onLoadedMetadata={(e) => e.target.play().catch(console.error)}
+      style={{ transform: 'scaleX(-1)' }}
+      className="w-full h-full object-cover"
+    />
+  );
+};
 
 const CodingRound = () => {
   const navigate = useNavigate();
@@ -18,18 +40,99 @@ const CodingRound = () => {
   const [uiuxAnalysis, setUiuxAnalysis] = useState('');
   const [isFullscreenImage, setIsFullscreenImage] = useState(false);
   const [socket, setSocket] = useState(null);
+  const [stream, setStream] = useState(null);
+  const [cameraError, setCameraError] = useState('');
+  const peerConnection = useRef(null);
 
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
-    setSocket(newSocket);
+    if (!candidateInfo) return;
+
+    let isMounted = true;
+    let localStream = null;
+    let newSocket = null;
+
+    const setupCameraAndSocket = async () => {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        if (!isMounted) {
+          localStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        setStream(localStream);
+
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+        newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
+        setSocket(newSocket);
+
+        const sendReady = () => {
+          newSocket.emit('candidate-ready', {
+            name: candidateInfo.name,
+            email: candidateInfo.email
+          });
+        };
+
+        newSocket.on('connect', sendReady);
+        if (newSocket.connected) {
+          sendReady();
+        }
+
+        newSocket.on('webrtc-offer', async ({ senderSocketId, offer }) => {
+          const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          });
+          peerConnection.current = pc;
+
+          localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              newSocket.emit('webrtc-ice-candidate', {
+                targetSocketId: senderSocketId,
+                candidate: event.candidate
+              });
+            }
+          };
+
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          newSocket.emit('webrtc-answer', {
+            targetSocketId: senderSocketId,
+            answer
+          });
+        });
+
+        newSocket.on('webrtc-ice-candidate', async ({ candidate }) => {
+          if (peerConnection.current) {
+            try {
+              await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error("Error adding ice candidate", e);
+            }
+          }
+        });
+
+      } catch (err) {
+        setCameraError('Camera access is required. Please allow camera permissions.');
+        toast.error('Camera access denied.');
+      }
+    };
+
+    setupCameraAndSocket();
 
     return () => {
-      newSocket.close();
+      isMounted = false;
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (newSocket) newSocket.close();
+      if (peerConnection.current) peerConnection.current.close();
     };
-  }, []);
+  }, [candidateInfo?.email, candidateInfo?.name]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -131,6 +234,31 @@ const CodingRound = () => {
 
   if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading challenges...</div>;
 
+  if (cameraError) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
+        <div className="text-center text-red-400 max-w-md p-6 border border-red-500 bg-gray-800 rounded-xl">
+          <h2 className="text-2xl font-bold mb-4">Camera Required</h2>
+          <p className="text-lg">{cameraError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stream) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4 text-gray-200">Initializing Camera...</h2>
+          <p className="text-gray-400">Please click "Allow" on the camera permission prompt to start your coding round.</p>
+          <div className="mt-8 flex justify-center">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (challenges.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
@@ -141,7 +269,15 @@ const CodingRound = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col relative">
+      {/* Local Video Feed */}
+      <div className="fixed bottom-6 left-6 w-48 h-32 bg-black rounded-lg shadow-2xl border-2 border-gray-700 overflow-hidden z-50">
+        <VideoPlayer stream={stream} />
+        <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/60 px-2 py-1 rounded text-white text-xs font-bold">
+          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+          <span>REC</span>
+        </div>
+      </div>
       {/* Header */}
       <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md">
         <div>
