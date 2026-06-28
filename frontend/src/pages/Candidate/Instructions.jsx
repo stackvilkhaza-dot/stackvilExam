@@ -43,7 +43,7 @@ const Instructions = () => {
         elem.requestFullscreen().catch((err) => console.log(err));
       }
 
-      navigate('/exam');
+      navigate('/coding-round');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Invalid email or password');
     } finally {
