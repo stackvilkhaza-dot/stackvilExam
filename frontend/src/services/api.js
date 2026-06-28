@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.MODE === 'production' ? '/_/backend/api' : 'https://zestfully-amusement-corrosive.ngrok-free.dev/api',
+  baseURL: 'https://zestfully-amusement-corrosive.ngrok-free.dev/api',
 });
 
 // Add a request interceptor to add JWT to admin routes

@@ -22,7 +22,7 @@ const CodingRound = () => {
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
 
   useEffect(() => {
-    const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+    const socketUrl = 'https://zestfully-amusement-corrosive.ngrok-free.dev';
     const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
     setSocket(newSocket);
 
