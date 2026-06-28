@@ -24,12 +24,21 @@ app.use((req, res, next) => {
     next();
 });
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/exam', examRoutes);
 
-app.get('/', (req, res) => {
-    res.send('API is running...');
+// Serve Frontend
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+app.use((req, res) => {
+    res.sendFile(path.resolve(__dirname, '../frontend/dist', 'index.html'));
 });
 
 import http from 'http';
@@ -46,7 +55,7 @@ const io = new Server(server, {
 let admins = [];
 let candidates = {}; // map socketId to candidate info
 
-io.on('connection', (socket) => {
+const handleSocketConnection = (socket) => {
   // Admin connects
   socket.on('join-admin', () => {
     if (!admins.includes(socket.id)) {
@@ -61,13 +70,28 @@ io.on('connection', (socket) => {
     candidates[socket.id] = { ...candidateInfo, socketId: socket.id };
     // Notify all admins that a candidate is ready
     admins.forEach(adminId => {
+      // Broadcast to both namespaces if necessary, but io.to works across namespaces if we track socket IDs correctly?
+      // Actually, io.to(socketId) works globally if we use the same server instance, but namespaces isolate rooms.
+      // We will just use io.emit for simplicity if needed, or io.of('/').to(adminId)
       io.to(adminId).emit('candidate-online', candidates[socket.id]);
+      io.of('/_/backend').to(adminId).emit('candidate-online', candidates[socket.id]);
     });
   });
 
   // WebRTC Signaling
+  socket.on('tab-switched', (info) => {
+    admins.forEach(adminId => {
+      io.to(adminId).emit('candidate-tab-switched', info);
+      io.of('/_/backend').to(adminId).emit('candidate-tab-switched', info);
+    });
+  });
+
   socket.on('webrtc-offer', ({ targetSocketId, offer }) => {
     io.to(targetSocketId).emit('webrtc-offer', {
+      senderSocketId: socket.id,
+      offer
+    });
+    io.of('/_/backend').to(targetSocketId).emit('webrtc-offer', {
       senderSocketId: socket.id,
       offer
     });
@@ -78,10 +102,18 @@ io.on('connection', (socket) => {
       senderSocketId: socket.id,
       answer
     });
+    io.of('/_/backend').to(targetSocketId).emit('webrtc-answer', {
+      senderSocketId: socket.id,
+      answer
+    });
   });
 
   socket.on('webrtc-ice-candidate', ({ targetSocketId, candidate }) => {
     io.to(targetSocketId).emit('webrtc-ice-candidate', {
+      senderSocketId: socket.id,
+      candidate
+    });
+    io.of('/_/backend').to(targetSocketId).emit('webrtc-ice-candidate', {
       senderSocketId: socket.id,
       candidate
     });
@@ -94,10 +126,14 @@ io.on('connection', (socket) => {
       delete candidates[socket.id];
       admins.forEach(adminId => {
         io.to(adminId).emit('candidate-offline', socket.id);
+        io.of('/_/backend').to(adminId).emit('candidate-offline', socket.id);
       });
     }
   });
-});
+};
+
+io.on('connection', handleSocketConnection);
+io.of('/_/backend').on('connection', handleSocketConnection);
 
 const PORT = process.env.PORT || 5000;
 

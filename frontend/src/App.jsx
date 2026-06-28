@@ -8,7 +8,7 @@ import SubmissionCompleted from './pages/Candidate/SubmissionCompleted';
 import CodingRound from './pages/Candidate/CodingRound';
 
 // Admin Pages
-import AdminLogin from './pages/Admin/Login';
+import AdminLogin from './pages/Admin/AdminLogin';
 import Dashboard from './pages/Admin/Dashboard';
 import Candidates from './pages/Admin/Candidates';
 import CandidateProfile from './pages/Admin/CandidateProfile';

@@ -38,11 +38,11 @@ const Exam = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour in seconds
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [waitingForExam, setWaitingForExam] = useState(false);
   const [serverMessage, setServerMessage] = useState('');
+  const [currentRound, setCurrentRound] = useState(1);
 
   // Camera state
   const [stream, setStream] = useState(null);
@@ -66,17 +66,19 @@ const Exam = () => {
         // Try to load saved progress
         const savedProgress = localStorage.getItem('examProgress');
         if (savedProgress) {
-          const { savedAnswers, savedTime, savedQuestions } = JSON.parse(savedProgress);
+          const { savedAnswers, savedTime, savedQuestions, savedRound } = JSON.parse(savedProgress);
           
-          // Check if cached questions are invalid (empty options or old string format)
+          // Check if cached questions are invalid (empty options, old string format, or missing round field)
           const isInvalidCache = !savedQuestions || savedQuestions.length === 0 || 
                                  !savedQuestions[0].options || savedQuestions[0].options.length === 0 || 
-                                 typeof savedQuestions[0].options[0] !== 'object';
+                                 typeof savedQuestions[0].options[0] !== 'object' ||
+                                 savedQuestions[0].round === undefined;
           
           if (!isInvalidCache) {
             setAnswers(savedAnswers || {});
             setTimeLeft(savedTime || 3600);
             setQuestions(savedQuestions);
+            setCurrentRound(savedRound || 1);
             setLoading(false);
             setWaitingForExam(false);
             return;
@@ -95,6 +97,17 @@ const Exam = () => {
         setWaitingForExam(false);
       } catch (error) {
         if (error.response && error.response.status === 403) {
+           if (error.response.data.message === 'NO EXAM IS CURRENTLY ASSIGNED.') {
+               try {
+                 const checkRes = await api.get(`/exam/my-challenges?email=${encodeURIComponent(candidateInfo.email)}`);
+                 if (checkRes.data && checkRes.data.length > 0) {
+                   navigate('/coding-round');
+                   return;
+                 }
+               } catch (e) {
+                 // proceed to show error
+               }
+           }
            setServerMessage(error.response.data.message);
            setWaitingForExam(true);
            setLoading(false);
@@ -130,23 +143,30 @@ const Exam = () => {
     if (questions.length > 0) {
       localStorage.setItem('examProgress', JSON.stringify({
         savedAnswers: answers,
-        savedTime: timeLeft,
-        savedQuestions: questions
+        savedQuestions: questions,
+        savedRound: currentRound
       }));
     }
-  }, [answers, timeLeft, questions.length]);
+  }, [answers, questions.length, currentRound]);
 
   // Anti-cheat: visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.error('Warning: Tab switching is not allowed!', { duration: 5000 });
+        if (socket && candidateInfo) {
+          socket.emit('tab-switched', {
+            name: candidateInfo.name,
+            email: candidateInfo.email,
+            time: new Date().toLocaleTimeString()
+          });
+        }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
+  }, [socket, candidateInfo]);
 
   // Anti-cheat: prevent copy/paste/context menu
   useEffect(() => {
@@ -192,7 +212,7 @@ const Exam = () => {
 
         setStream(localStream);
 
-        const socketUrl = import.meta.env.MODE === 'production' ? '/_/backend' : 'http://localhost:5000';
+        const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'http://localhost:5000';
         newSocket = io(socketUrl);
         setSocket(newSocket);
 
@@ -263,19 +283,7 @@ const Exam = () => {
     };
   }, [candidateInfo?.email, candidateInfo?.name, waitingForExam]);
 
-  // Timer
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      handleSubmit(true);
-      return;
-    }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft]);
 
   const handleSubmit = useCallback(async (isForced = false) => {
     if (isSubmitting) return;
@@ -283,11 +291,7 @@ const Exam = () => {
     if (isForced !== true) {
       const unansweredIndex = questions.findIndex(q => !answers[q._id]);
       if (unansweredIndex !== -1) {
-        toast.error(`Please answer Question ${unansweredIndex + 1} before submitting.`);
-        const element = document.getElementById(`question-${questions[unansweredIndex]._id}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        toast.error(`Please answer all questions before submitting.`);
         return;
       }
     }
@@ -326,11 +330,37 @@ const Exam = () => {
     }));
   };
 
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+  const handleNextRound = () => {
+    const currentQuestions = questions.filter(q => q.round === currentRound);
+    const unansweredIndex = currentQuestions.findIndex(q => !answers[q._id]);
+    
+    if (unansweredIndex !== -1) {
+      toast.error(`Please answer Question ${unansweredIndex + 1} before proceeding.`);
+      const element = document.getElementById(`question-${currentQuestions[unansweredIndex]._id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    
+    if (currentRound === 1) {
+      const hasRound2 = questions.some(q => q.round === 2);
+      if (hasRound2) {
+        if (window.confirm("Ready to proceed to Round 2 (Technical)? You cannot return to change your Round 1 answers.")) {
+          setCurrentRound(2);
+          window.scrollTo(0, 0);
+        }
+      } else {
+        if (window.confirm("Ready to proceed to Round 3 (Coding)? You cannot return to change your answers.")) {
+          handleSubmit(false);
+        }
+      }
+    } else {
+      if (window.confirm("Ready to proceed to Round 3 (Coding)? You cannot return to change your answers.")) {
+        handleSubmit(false);
+      }
+    }
   };
 
   if (loading) {
@@ -406,8 +436,9 @@ const Exam = () => {
   }
 
   // Calculate overall progress based on answered questions
-  const answeredCount = Object.keys(answers).length;
-  const progressPercentage = (answeredCount / questions.length) * 100;
+  const currentQuestions = questions.filter(q => q.round === currentRound);
+  const answeredCount = currentQuestions.filter(q => answers[q._id]).length;
+  const progressPercentage = (answeredCount / currentQuestions.length) * 100;
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 select-none pb-20 relative">
@@ -423,12 +454,9 @@ const Exam = () => {
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-primary-600 p-4 text-white flex justify-between items-center sticky top-0 z-10 shadow-md">
-          <h1 className="text-xl font-bold">Stack Exam Portal</h1>
+          <h1 className="text-xl font-bold">Stack Exam Portal - Round {currentRound}</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium">Answered: {answeredCount}/{questions.length}</span>
-            <span className="font-mono text-lg font-semibold px-3 py-1 bg-primary-700 rounded-md">
-              {formatTime(timeLeft)}
-            </span>
+            <span className="text-sm font-medium">Answered: {answeredCount}/{currentQuestions.length}</span>
           </div>
         </div>
 
@@ -442,10 +470,10 @@ const Exam = () => {
 
         {/* Question List */}
         <div className="p-8 space-y-12">
-          {questions.map((currentQuestion, idx) => (
+          {currentQuestions.map((currentQuestion, idx) => (
             <div key={currentQuestion._id} id={`question-${currentQuestion._id}`} className="border-b pb-12 last:border-b-0 last:pb-0">
               <div className="mb-4 flex justify-between items-center text-gray-500 text-sm font-medium">
-                <span>Question {idx + 1} of {questions.length}</span>
+                <span>Question {idx + 1} of {currentQuestions.length}</span>
                 <span>Marks: {currentQuestion?.marks || 1}</span>
               </div>
 
@@ -487,15 +515,11 @@ const Exam = () => {
         {/* Footer Controls */}
         <div className="p-6 bg-gray-50 border-t flex justify-end items-center sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
           <button
-            onClick={() => {
-              if (window.confirm("Ready to proceed to Round 2 (Coding Round)? You cannot return to change your answers.")) {
-                handleSubmit(false);
-              }
-            }}
+            onClick={handleNextRound}
             disabled={isSubmitting}
             className="px-8 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors text-lg shadow-sm flex items-center space-x-2"
           >
-            <span>{isSubmitting ? 'Saving...' : 'Next (Coding Round)'}</span>
+            <span>{isSubmitting ? 'Saving...' : (currentRound === 1 && questions.some(q => q.round === 2) ? 'Next (Round 2)' : 'Submit & Proceed to Coding')}</span>
             {!isSubmitting && (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />

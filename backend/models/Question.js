@@ -26,6 +26,16 @@ const questionSchema = new mongoose.Schema({
         ref: 'ExamSet',
         required: true
     },
+    round: {
+        type: Number,
+        required: true,
+        enum: [1, 2],
+        default: 1
+    },
+    order: {
+        type: Number,
+        default: 0
+    },
     createdAt: {
         type: Date,
         default: Date.now,

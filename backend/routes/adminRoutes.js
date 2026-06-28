@@ -12,21 +12,30 @@ import {
     uploadPdf,
     getExamSets,
     setActiveExamSet,
+    startAllExams,
+    stopAllExams,
     getAssignments,
     createAssignment,
     deleteAssignment,
     getCandidates,
     getCandidateById,
     createCandidate,
-    resetDatabase
+    resetDatabase,
+    createCodingChallenge,
+    getCandidateChallenges,
+    updateCodingChallenge,
+    deleteCodingChallenge,
+    uploadImage
 } from '../controllers/adminController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { upload } from '../middleware/upload.js';
+import { upload, imageUpload } from '../middleware/upload.js';
 
 const router = express.Router();
 
 router.post('/login', loginAdmin);
 router.post('/reset-db', protect, resetDatabase);
+router.put('/start-all-exams', protect, startAllExams);
+router.put('/stop-all-exams', protect, stopAllExams);
 
 router.route('/dashboard').get(protect, getDashboardStats);
 
@@ -66,5 +75,13 @@ router.route('/candidates/:id')
     .get(protect, getCandidateById);
 
 router.post('/upload-pdf', protect, upload.single('pdf'), uploadPdf);
+router.post('/upload-image', protect, imageUpload.single('image'), uploadImage);
+
+router.get('/candidates/:id/challenges', protect, getCandidateChallenges);
+router.post('/challenges', protect, createCodingChallenge);
+
+router.route('/challenges/:id')
+    .put(protect, updateCodingChallenge)
+    .delete(protect, deleteCodingChallenge);
 
 export default router;

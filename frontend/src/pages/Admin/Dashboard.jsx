@@ -52,31 +52,74 @@ const Dashboard = () => {
     }
   };
 
+  const handleStartAllExams = async () => {
+    if (window.confirm('Are you sure you want to START the exam for ALL candidates globally? Candidates will be able to log in and begin.')) {
+      try {
+        await api.put('/admin/start-all-exams');
+        toast.success('All exams have been started globally!');
+      } catch (error) {
+        toast.error('Failed to start all exams.');
+      }
+    }
+  };
+
+  const handleStopAllExams = async () => {
+    if (window.confirm('Are you sure you want to STOP the exam for ALL candidates globally?')) {
+      try {
+        await api.put('/admin/stop-all-exams');
+        toast.success('All exams have been stopped globally!');
+      } catch (error) {
+        toast.error('Failed to stop all exams.');
+      }
+    }
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-        <button 
-          onClick={handleResetDatabase}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          Reset Entire Database
-        </button>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-gray-500 mt-1">High-level statistics and global controls.</p>
+        </div>
+        <div className="flex gap-4">
+          <button 
+            onClick={handleStartAllExams}
+            className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition-colors"
+          >
+            Start All Exams Globally
+          </button>
+          <button 
+            onClick={handleStopAllExams}
+            className="px-6 py-2 bg-yellow-600 text-white font-bold rounded-lg shadow hover:bg-yellow-700 transition-colors"
+          >
+            Stop All Exams
+          </button>
+        </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {statCards.map((stat, idx) => (
-          <div key={idx} className="bg-white rounded-xl shadow-sm p-6 flex items-center border border-gray-100">
-            <div className="text-4xl mr-4">{stat.icon}</div>
+        {statCards.map((card, idx) => (
+          <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4 hover:shadow-md transition-shadow">
+            <div className="text-4xl">{card.icon}</div>
             <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">{stat.label}</p>
-              <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-sm text-gray-500 font-medium">{card.label}</p>
+              <p className="text-2xl font-bold text-gray-900">{card.value}</p>
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-12 p-6 bg-red-50 border border-red-200 rounded-xl">
+        <h2 className="text-lg font-bold text-red-800 mb-2">Danger Zone</h2>
+        <p className="text-sm text-red-600 mb-4">
+          Actions here are irreversible. Please be absolutely certain before proceeding.
+        </p>
+        <button 
+          onClick={handleResetDatabase}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-medium"
+        >
+          Reset Entire Database
+        </button>
       </div>
     </div>
   );

@@ -3,6 +3,8 @@ import Result from '../models/Result.js';
 import ExamSet from '../models/ExamSet.js';
 import ExamAssignment from '../models/ExamAssignment.js';
 import Candidate from '../models/Candidate.js';
+import CodingChallenge from '../models/CodingChallenge.js';
+import CodingSubmission from '../models/CodingSubmission.js';
 import bcrypt from 'bcryptjs';
 
 // @desc    Get all questions for exam (without answers)
@@ -35,7 +37,7 @@ export const getExamQuestions = async (req, res) => {
             return res.status(403).json({ message: 'NO EXAM IS CURRENTLY ASSIGNED.' });
         }
 
-        const questions = await Question.find({ examSetId: examSetIdToUse }).select('-correctAnswer -createdAt -__v');
+        const questions = await Question.find({ examSetId: examSetIdToUse }).select('-correctAnswer -createdAt -__v').sort({ order: 1 });
         res.json(questions);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
@@ -127,35 +129,58 @@ export const loginCandidate = async (req, res) => {
     }
 };
 
-// @desc    Submit coding round
-// @route   POST /api/exam/submit-coding
+// @desc    Get assigned coding challenges
+// @route   GET /api/exam/my-challenges
 // @access  Public
-export const submitCoding = async (req, res) => {
-    const { candidateEmail, html, css, js } = req.body;
+export const getMyChallenges = async (req, res) => {
+    try {
+        const email = req.query.email?.toLowerCase().trim();
+        if (!email) return res.status(400).json({ message: 'Email required' });
 
-    if (!candidateEmail) {
-        return res.status(400).json({ message: 'Missing candidate email' });
+        const candidate = await Candidate.findOne({ email });
+        if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
+
+        const challenges = await CodingChallenge.find({ candidateId: candidate._id }).sort({ order: 1, createdAt: 1 }).select('-__v');
+        res.json(challenges);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Submit coding challenge
+// @route   POST /api/exam/submit-challenge
+// @access  Public
+export const submitChallenge = async (req, res) => {
+    const { candidateEmail, challengeId, uiuxAnalysis, submittedHtml, submittedCss } = req.body;
+
+    if (!candidateEmail || !challengeId) {
+        return res.status(400).json({ message: 'Missing required fields' });
     }
 
     try {
-        // Find the most recent result for this candidate and update it
-        const result = await Result.findOneAndUpdate(
-            { candidateEmail: candidateEmail.toLowerCase().trim() },
-            { 
-                $set: { 
-                    'codingRound.html': html || '',
-                    'codingRound.css': css || '',
-                    'codingRound.js': js || ''
-                }
-            },
-            { new: true, sort: { submittedAt: -1 } }
+        const candidate = await Candidate.findOne({ email: candidateEmail.toLowerCase().trim() });
+        if (!candidate) return res.status(404).json({ message: 'Candidate not found' });
+
+        const submission = await CodingSubmission.findOneAndUpdate(
+            { candidateId: candidate._id, challengeId },
+            { uiuxAnalysis, submittedHtml, submittedCss, submissionTime: new Date(), status: 'Pending' },
+            { new: true, upsert: true }
         );
 
-        if (!result) {
-            return res.status(404).json({ message: 'No existing exam result found for this candidate to attach coding round to.' });
+        let existingResult = await Result.findOne({ candidateEmail: candidate.email });
+        if (!existingResult) {
+            await Result.create({
+                candidateName: candidate.name,
+                candidateEmail: candidate.email,
+                answers: [],
+                correctCount: 0,
+                wrongCount: 0,
+                score: 0,
+                submittedAt: new Date()
+            });
         }
 
-        res.status(200).json({ message: 'Coding round submitted successfully' });
+        res.status(201).json({ message: 'Coding submission saved', submission });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });

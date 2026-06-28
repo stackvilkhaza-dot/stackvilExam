@@ -5,9 +5,13 @@ const examSetSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    fileName: {
+    fileNameRound1: {
         type: String,
         required: true,
+    },
+    fileNameRound2: {
+        type: String,
+        default: null,
     },
     isActive: {
         type: Boolean,

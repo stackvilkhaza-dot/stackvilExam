@@ -7,6 +7,8 @@ import Candidate from '../models/Candidate.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PDFParse as pdfParse } from 'pdf-parse';
+import CodingChallenge from '../models/CodingChallenge.js';
+import CodingSubmission from '../models/CodingSubmission.js';
 
 // Generate JWT
 const generateToken = (id) => {
@@ -71,7 +73,7 @@ export const getDashboardStats = async (req, res) => {
 export const getQuestions = async (req, res) => {
     try {
         const query = req.query.examSetId ? { examSetId: req.query.examSetId } : {};
-        const questions = await Question.find(query);
+        const questions = await Question.find(query).sort({ order: 1 });
         res.json(questions);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
@@ -160,13 +162,19 @@ export const getResults = async (req, res) => {
 // @access  Private
 export const getResultById = async (req, res) => {
     try {
-        const result = await Result.findById(req.params.id).populate('answers.questionId');
+        const result = await Result.findById(req.params.id).populate('answers.questionId').lean();
 
         if (!result) {
             return res.status(404).json({ message: 'Result not found' });
         }
 
-        res.json(result);
+        const candidate = await Candidate.findOne({ email: result.candidateEmail.toLowerCase().trim() });
+        let codingSubmissions = [];
+        if (candidate) {
+             codingSubmissions = await CodingSubmission.find({ candidateId: candidate._id }).populate('challengeId');
+        }
+
+        res.json({ ...result, codingSubmissions });
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
     }
@@ -199,9 +207,9 @@ export const uploadPdf = async (req, res) => {
         return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const { candidateId } = req.body;
-    if (!candidateId) {
-        return res.status(400).json({ message: 'Candidate ID is required' });
+    const { candidateId, round } = req.body;
+    if (!candidateId || !round) {
+        return res.status(400).json({ message: 'Candidate ID and round are required' });
     }
 
     try {
@@ -225,13 +233,29 @@ export const uploadPdf = async (req, res) => {
         
         let match;
         const questions = [];
+        let orderIndex = 1;
 
-        // Create an ExamSet named for the candidate
-        const newExamSet = await ExamSet.create({
-            name: `${candidate.name}'s Exam - ${new Date().toLocaleDateString()}`,
-            fileName: req.file.originalname,
-            isActive: false
-        });
+        // Check if an ExamSet already exists for this candidate
+        let existingAssignment = await ExamAssignment.findOne({ candidateEmail: candidate.email }).populate('examSetId');
+        let examSet;
+
+        if (existingAssignment && existingAssignment.examSetId) {
+            examSet = existingAssignment.examSetId;
+            if (round == 1) {
+                examSet.fileNameRound1 = req.file.originalname;
+            } else {
+                examSet.fileNameRound2 = req.file.originalname;
+            }
+            await examSet.save();
+        } else {
+            // Create a new ExamSet
+            examSet = await ExamSet.create({
+                name: `${candidate.name}'s Exam - ${new Date().toLocaleDateString()}`,
+                fileNameRound1: round == 1 ? req.file.originalname : '',
+                fileNameRound2: round == 2 ? req.file.originalname : null,
+                isActive: false
+            });
+        }
 
         while ((match = regex.exec(text)) !== null) {
             const questionText = match[1].trim();
@@ -249,27 +273,31 @@ export const uploadPdf = async (req, res) => {
                 options,
                 correctAnswer,
                 marks: 1,
-                examSetId: newExamSet._id
+                examSetId: examSet._id,
+                round: Number(round),
+                order: orderIndex++
             });
         }
 
         if (questions.length === 0) {
-            await ExamSet.findByIdAndDelete(newExamSet._id);
+            if (!existingAssignment) await ExamSet.findByIdAndDelete(examSet._id);
             return res.status(400).json({ message: 'No questions could be extracted. Please check the PDF format.' });
         }
 
         const savedQuestions = await Question.insertMany(questions);
 
-        // Assign the new exam set to the candidate automatically
-        await ExamAssignment.findOneAndUpdate(
-            { candidateEmail: candidate.email },
-            { examSetId: newExamSet._id },
-            { new: true, upsert: true }
-        );
+        if (!existingAssignment) {
+            // Assign the new exam set to the candidate automatically
+            await ExamAssignment.findOneAndUpdate(
+                { candidateEmail: candidate.email },
+                { examSetId: examSet._id },
+                { new: true, upsert: true }
+            );
+        }
 
         res.status(201).json({
-            message: `Successfully extracted ${savedQuestions.length} questions and assigned to ${candidate.name}.`,
-            examSet: newExamSet,
+            message: `Successfully extracted ${savedQuestions.length} questions for Round ${round} and assigned to ${candidate.name}.`,
+            examSet: examSet,
             questions: savedQuestions
         });
 
@@ -310,12 +338,36 @@ export const setActiveExamSet = async (req, res) => {
     }
 };
 
+// @desc    Start all exams globally
+// @route   PUT /api/admin/start-all-exams
+// @access  Private
+export const startAllExams = async (req, res) => {
+    try {
+        await ExamSet.updateMany({}, { isActive: true });
+        res.json({ message: 'All exams have been started globally' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Stop all exams globally
+// @route   PUT /api/admin/stop-all-exams
+// @access  Private
+export const stopAllExams = async (req, res) => {
+    try {
+        await ExamSet.updateMany({}, { isActive: false });
+        res.json({ message: 'All exams have been stopped globally' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 // @desc    Get all exam assignments
 // @route   GET /api/admin/assignments
 // @access  Private
 export const getAssignments = async (req, res) => {
     try {
-        const assignments = await ExamAssignment.find().populate('examSetId', 'name fileName').sort({ assignedAt: -1 });
+        const assignments = await ExamAssignment.find().populate('examSetId', 'name fileName fileNameRound1 fileNameRound2 isActive').sort({ assignedAt: -1 });
         res.json(assignments);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
@@ -439,4 +491,71 @@ export const resetDatabase = async (req, res) => {
         console.error('Error resetting database:', error);
         res.status(500).json({ message: 'Failed to reset database' });
     }
+};
+
+// @desc    Get all coding challenges for a candidate
+// @route   GET /api/admin/candidates/:id/challenges
+// @access  Private
+export const getCandidateChallenges = async (req, res) => {
+    try {
+        const challenges = await CodingChallenge.find({ candidateId: req.params.id }).sort({ order: 1, createdAt: 1 });
+        res.json(challenges);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error fetching challenges' });
+    }
+};
+
+// @desc    Create a new coding challenge for a candidate
+// @route   POST /api/admin/challenges
+// @access  Private
+export const createCodingChallenge = async (req, res) => {
+    try {
+        const { candidateId, challengeType, title, marks, timeLimit, description, referenceImage, order } = req.body;
+        
+        const newChallenge = await CodingChallenge.create({
+            candidateId, challengeType, title, marks, timeLimit, description, referenceImage, order
+        });
+
+        res.status(201).json(newChallenge);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error creating challenge' });
+    }
+};
+
+// @desc    Update a coding challenge (also used for reordering)
+// @route   PUT /api/admin/challenges/:id
+// @access  Private
+export const updateCodingChallenge = async (req, res) => {
+    try {
+        const updatedC = await CodingChallenge.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedC) return res.status(404).json({ message: 'Challenge not found' });
+        res.json(updatedC);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error updating challenge' });
+    }
+};
+
+// @desc    Delete a coding challenge
+// @route   DELETE /api/admin/challenges/:id
+// @access  Private
+export const deleteCodingChallenge = async (req, res) => {
+    try {
+        const deletedC = await CodingChallenge.findByIdAndDelete(req.params.id);
+        if (!deletedC) return res.status(404).json({ message: 'Challenge not found' });
+        res.json({ message: 'Challenge deleted' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error deleting challenge' });
+    }
+};
+
+// @desc    Upload an image for coding expected output
+// @route   POST /api/admin/upload-image
+// @access  Private
+export const uploadImage = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No image uploaded' });
+    }
+    // Return the URL path
+    res.status(201).json({ url: `/uploads/${req.file.filename}` });
 };
