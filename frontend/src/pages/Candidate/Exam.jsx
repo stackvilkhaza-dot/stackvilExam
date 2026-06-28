@@ -212,7 +212,7 @@ const Exam = () => {
 
         setStream(localStream);
 
-        const socketUrl = 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
         newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
         setSocket(newSocket);
 

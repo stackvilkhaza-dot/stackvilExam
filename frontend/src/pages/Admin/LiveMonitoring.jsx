@@ -134,7 +134,7 @@ const LiveMonitoring = () => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const socketUrl = 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
     const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
     setSocket(newSocket);
 
