@@ -74,6 +74,7 @@ const CodingRound = () => {
   const [socket, setSocket] = useState(null);
   const [stream, setStream] = useState(null);
   const [cameraError, setCameraError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(null);
   const peerConnection = useRef(null);
 
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
@@ -230,9 +231,9 @@ const CodingRound = () => {
     toast.success('Preview updated');
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (isForced = false) => {
     if (!currentChallenge) return;
-    if (!window.confirm("Submit this challenge? You cannot modify it later.")) return;
+    if (isForced !== true && !window.confirm("Submit this challenge? You cannot modify it later.")) return;
 
     setIsSubmitting(true);
     try {
@@ -262,6 +263,41 @@ const CodingRound = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Global Timer Setup
+  useEffect(() => {
+    if (challenges.length === 0) return;
+
+    let endTime = parseInt(localStorage.getItem('examEndTime'));
+    if (!endTime || isNaN(endTime)) {
+      endTime = Date.now() + 3 * 60 * 60 * 1000;
+      localStorage.setItem('examEndTime', endTime.toString());
+    }
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        toast.error('Time is up! Auto-submitting exam...', { duration: 5000 });
+        document.getElementById('auto-submit-btn')?.click();
+      }
+    };
+
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [challenges.length]);
+
+  const formatTime = (seconds) => {
+    if (seconds === null) return '--:--:--';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading challenges...</div>;
@@ -316,12 +352,19 @@ const CodingRound = () => {
           <h1 className="text-xl font-bold">Round 3: Web Designer Challenge {currentIndex + 1} of {challenges.length}</h1>
           <p className="text-sm text-gray-400">Candidate: {candidateInfo?.name}</p>
         </div>
-        <div className="flex space-x-4">
-          <button onClick={handleRun} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded font-bold shadow-md transition-colors">Run / Update Preview</button>
-          <button onClick={handleReset} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded font-medium">Reset</button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded font-bold disabled:opacity-50 shadow-md">
-            {isSubmitting ? 'Submitting...' : 'Submit Final Code'}
-          </button>
+        <div className="flex items-center space-x-6">
+          <div className={`font-mono text-xl font-bold flex items-center space-x-2 bg-black/30 px-4 py-1.5 rounded-lg ${timeLeft !== null && timeLeft < 300 ? 'text-red-400 animate-pulse' : ''}`}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span>{formatTime(timeLeft)}</span>
+          </div>
+          <div className="flex space-x-4">
+            <button onClick={handleRun} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded font-bold shadow-md transition-colors">Run / Update Preview</button>
+            <button onClick={handleReset} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded font-medium">Reset</button>
+            <button onClick={() => handleSubmit(false)} disabled={isSubmitting} className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded font-bold disabled:opacity-50 shadow-md">
+              {isSubmitting ? 'Submitting...' : 'Submit Final Code'}
+            </button>
+            <button id="auto-submit-btn" onClick={() => handleSubmit(true)} className="hidden" />
+          </div>
         </div>
       </header>
 

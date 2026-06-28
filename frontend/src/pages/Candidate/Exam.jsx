@@ -43,6 +43,7 @@ const Exam = () => {
   const [waitingForExam, setWaitingForExam] = useState(false);
   const [serverMessage, setServerMessage] = useState('');
   const [currentRound, setCurrentRound] = useState(1);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   // Camera state
   const [stream, setStream] = useState(null);
@@ -76,7 +77,6 @@ const Exam = () => {
           
           if (!isInvalidCache) {
             setAnswers(savedAnswers || {});
-            setTimeLeft(savedTime || 3600);
             setQuestions(savedQuestions);
             setCurrentRound(savedRound || 1);
             setLoading(false);
@@ -191,6 +191,41 @@ const Exam = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  // Global Timer Setup
+  useEffect(() => {
+    if (waitingForExam || questions.length === 0) return;
+
+    let endTime = parseInt(localStorage.getItem('examEndTime'));
+    if (!endTime || isNaN(endTime)) {
+      endTime = Date.now() + 3 * 60 * 60 * 1000; // 3 hours from now
+      localStorage.setItem('examEndTime', endTime.toString());
+    }
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        toast.error('Time is up! Auto-submitting exam...', { duration: 5000 });
+        handleSubmit(true);
+      }
+    };
+
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [waitingForExam, questions.length, handleSubmit]);
+
+  const formatTime = (seconds) => {
+    if (seconds === null) return '--:--:--';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Camera & WebRTC Setup
 
@@ -455,8 +490,12 @@ const Exam = () => {
         {/* Header */}
         <div className="bg-primary-600 p-4 text-white flex justify-between items-center sticky top-0 z-10 shadow-md">
           <h1 className="text-xl font-bold">Stack Exam Portal - Round {currentRound}</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium">Answered: {answeredCount}/{currentQuestions.length}</span>
+          <div className="flex items-center space-x-6">
+            <div className={`font-mono text-xl font-bold flex items-center space-x-2 bg-black/20 px-4 py-1.5 rounded-lg ${timeLeft !== null && timeLeft < 300 ? 'text-red-300 animate-pulse' : ''}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>{formatTime(timeLeft)}</span>
+            </div>
+            <span className="text-sm font-medium bg-black/20 px-3 py-1 rounded">Answered: {answeredCount}/{currentQuestions.length}</span>
           </div>
         </div>
 
