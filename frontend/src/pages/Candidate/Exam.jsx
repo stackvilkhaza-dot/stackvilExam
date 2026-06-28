@@ -55,6 +55,44 @@ const Exam = () => {
   // Load candidate info
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
 
+  const handleSubmit = useCallback(async (isForced = false) => {
+    if (isSubmitting) return;
+
+    if (isForced !== true) {
+      const unansweredIndex = questions.findIndex(q => !answers[q._id]);
+      if (unansweredIndex !== -1) {
+        toast.error(`Please answer all questions before submitting.`);
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+
+    const formattedAnswers = Object.keys(answers).map(questionId => ({
+      questionId,
+      selectedAnswer: answers[questionId]
+    }));
+
+    try {
+      await api.post('/exam/submit', {
+        candidateName: candidateInfo.name,
+        candidateEmail: candidateInfo.email,
+        answers: formattedAnswers
+      });
+      
+      localStorage.removeItem('examProgress');
+      // Keep candidateInfo for coding round
+      
+      // Exit fullscreen (Optional: might want to stay in fullscreen for coding round)
+      // Since coding round is still part of the exam, we shouldn't exit fullscreen yet.
+      
+      navigate('/coding-round');
+    } catch (error) {
+      toast.error('Failed to submit exam. Please try again.');
+      setIsSubmitting(false);
+    }
+  }, [answers, candidateInfo, isSubmitting, navigate, questions]);
+
   useEffect(() => {
     if (!candidateInfo) {
       navigate('/');
@@ -321,43 +359,7 @@ const Exam = () => {
 
 
 
-  const handleSubmit = useCallback(async (isForced = false) => {
-    if (isSubmitting) return;
 
-    if (isForced !== true) {
-      const unansweredIndex = questions.findIndex(q => !answers[q._id]);
-      if (unansweredIndex !== -1) {
-        toast.error(`Please answer all questions before submitting.`);
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-
-    const formattedAnswers = Object.keys(answers).map(questionId => ({
-      questionId,
-      selectedAnswer: answers[questionId]
-    }));
-
-    try {
-      await api.post('/exam/submit', {
-        candidateName: candidateInfo.name,
-        candidateEmail: candidateInfo.email,
-        answers: formattedAnswers
-      });
-      
-      localStorage.removeItem('examProgress');
-      // Keep candidateInfo for coding round
-      
-      // Exit fullscreen (Optional: might want to stay in fullscreen for coding round)
-      // Since coding round is still part of the exam, we shouldn't exit fullscreen yet.
-      
-      navigate('/coding-round');
-    } catch (error) {
-      toast.error('Failed to submit exam. Please try again.');
-      setIsSubmitting(false);
-    }
-  }, [answers, candidateInfo, isSubmitting, navigate, questions]);
 
   const handleOptionSelect = (questionId, option) => {
     setAnswers(prev => ({
