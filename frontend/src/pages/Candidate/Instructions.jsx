@@ -15,12 +15,9 @@ const Instructions = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if already logged in and assigned
-    const candidateInfo = localStorage.getItem('candidateInfo');
-    if (candidateInfo) {
-      // Just clear it for safety so they have to login again
-      localStorage.removeItem('candidateInfo');
-    }
+    localStorage.removeItem('candidateInfo');
+    localStorage.removeItem('examEndTime');
+    localStorage.removeItem('examProgress');
   }, []);
 
   const handleStartExam = async (e) => {

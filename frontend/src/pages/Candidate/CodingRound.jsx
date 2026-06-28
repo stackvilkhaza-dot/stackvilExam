@@ -256,6 +256,9 @@ const CodingRound = () => {
         setActiveTab('html');
       } else {
         toast.success('All Web Design challenges completed!');
+        localStorage.removeItem('examEndTime');
+        localStorage.removeItem('candidateInfo');
+        localStorage.removeItem('examProgress');
         navigate('/submitted');
       }
     } catch (err) {
@@ -332,7 +335,17 @@ const CodingRound = () => {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
         <h2 className="text-2xl mb-4">No Web Design challenges assigned to you.</h2>
-        <button onClick={() => navigate('/submitted')} className="bg-blue-600 px-4 py-2 rounded">Finish Exam</button>
+        <button 
+          onClick={() => {
+            localStorage.removeItem('examEndTime');
+            localStorage.removeItem('candidateInfo');
+            localStorage.removeItem('examProgress');
+            navigate('/submitted');
+          }} 
+          className="bg-blue-600 px-4 py-2 rounded"
+        >
+          Finish Exam
+        </button>
       </div>
     );
   }
