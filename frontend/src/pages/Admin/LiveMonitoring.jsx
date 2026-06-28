@@ -75,8 +75,8 @@ const CandidateVideo = ({ candidate, socket }) => {
     return () => {
       socket.off('webrtc-answer', handleAnswer);
       socket.off('webrtc-ice-candidate', handleIceCandidate);
-      if (pc) {
-        pc.close();
+      if (peerConnection.current) {
+        peerConnection.current.close();
       }
       peerConnection.current = null;
     };

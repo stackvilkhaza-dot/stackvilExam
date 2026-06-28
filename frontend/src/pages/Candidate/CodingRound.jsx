@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Editor from '@monaco-editor/react';
+import axios from 'axios';
 import api from '../../services/api';
 import { io } from 'socket.io-client';
 
@@ -25,6 +26,37 @@ const VideoPlayer = ({ stream }) => {
       className="w-full h-full object-cover"
     />
   );
+};
+
+const SecureImage = ({ src, alt, className, onClick, title }) => {
+  const [objectUrl, setObjectUrl] = useState(null);
+
+  useEffect(() => {
+    if (!src) return;
+    let isMounted = true;
+    let url = null;
+    
+    axios.get(src, { 
+      responseType: 'blob',
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    })
+      .then(res => {
+        if (isMounted) {
+          url = URL.createObjectURL(res.data);
+          setObjectUrl(url);
+        }
+      })
+      .catch(err => console.error('Error fetching image', err));
+      
+    return () => {
+      isMounted = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [src]);
+
+  if (!objectUrl) return <div className="w-full h-40 bg-gray-800 animate-pulse flex items-center justify-center border border-gray-700 rounded text-gray-500 text-xs mb-4">Loading reference...</div>;
+
+  return <img src={objectUrl} alt={alt} className={className} onClick={onClick} title={title} />;
 };
 
 const CodingRound = () => {
@@ -313,7 +345,7 @@ const CodingRound = () => {
                 <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
                   {currentChallenge.challengeType === 'UIUXRedesign' ? 'Poor UI Design' : 'Reference Design'}
                 </h3>
-                <img 
+                <SecureImage 
                   src={`${import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
                   alt="Reference Design" 
                   className="w-full h-auto rounded shadow-lg border border-gray-600 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
@@ -405,7 +437,7 @@ const CodingRound = () => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 cursor-pointer p-4"
           onClick={() => setIsFullscreenImage(false)}
         >
-          <img 
+          <SecureImage 
             src={`${import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
             alt="Full Screen Reference" 
             className="max-w-full max-h-full object-contain shadow-2xl rounded"
