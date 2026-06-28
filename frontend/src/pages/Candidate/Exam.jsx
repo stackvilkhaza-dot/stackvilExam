@@ -212,8 +212,8 @@ const Exam = () => {
 
         setStream(localStream);
 
-        const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'http://localhost:5000';
-        newSocket = io(socketUrl);
+        const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+        newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
         setSocket(newSocket);
 
         const sendReady = () => {

@@ -22,8 +22,8 @@ const CodingRound = () => {
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
 
   useEffect(() => {
-    const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'http://localhost:5000';
-    const newSocket = io(socketUrl);
+    const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+    const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
     setSocket(newSocket);
 
     return () => {
@@ -178,7 +178,7 @@ const CodingRound = () => {
                   {currentChallenge.challengeType === 'UIUXRedesign' ? 'Poor UI Design' : 'Reference Design'}
                 </h3>
                 <img 
-                  src={`http://localhost:5000${currentChallenge.referenceImage}`} 
+                  src={`https://zestfully-amusement-corrosive.ngrok-free.dev${currentChallenge.referenceImage}`} 
                   alt="Reference Design" 
                   className="w-full h-auto rounded shadow-lg border border-gray-600 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => setIsFullscreenImage(true)}
@@ -270,7 +270,7 @@ const CodingRound = () => {
           onClick={() => setIsFullscreenImage(false)}
         >
           <img 
-            src={`http://localhost:5000${currentChallenge.referenceImage}`} 
+            src={`https://zestfully-amusement-corrosive.ngrok-free.dev${currentChallenge.referenceImage}`} 
             alt="Full Screen Reference" 
             className="max-w-full max-h-full object-contain shadow-2xl rounded"
           />

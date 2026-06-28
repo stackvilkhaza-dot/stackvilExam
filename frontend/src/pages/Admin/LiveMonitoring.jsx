@@ -134,8 +134,8 @@ const LiveMonitoring = () => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'http://localhost:5000';
-    const newSocket = io(socketUrl);
+    const socketUrl = import.meta.env.MODE === 'production' ? '/' : 'https://zestfully-amusement-corrosive.ngrok-free.dev';
+    const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
