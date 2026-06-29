@@ -201,6 +201,8 @@ const CodingRound = () => {
   }, [candidateInfo?.email, candidateInfo?.name]);
 
   useEffect(() => {
+    if (challenges.length === 0) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.error('Warning: Tab switching is not allowed!', { duration: 5000 });
@@ -232,7 +234,7 @@ const CodingRound = () => {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [socket, candidateInfo]);
+  }, [socket, candidateInfo, challenges.length]);
 
   useEffect(() => {
     if (!candidateInfo) {

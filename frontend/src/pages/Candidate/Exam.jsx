@@ -210,6 +210,8 @@ const Exam = () => {
 
   // Anti-cheat: visibility change
   useEffect(() => {
+    if (waitingForExam || questions.length === 0) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.error('Warning: Tab switching is not allowed!', { duration: 5000 });
@@ -241,10 +243,12 @@ const Exam = () => {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [socket, candidateInfo]);
+  }, [socket, candidateInfo, waitingForExam, questions.length]);
 
   // Anti-cheat: prevent copy/paste/context menu
   useEffect(() => {
+    if (waitingForExam || questions.length === 0) return;
+
     const preventDefault = (e) => e.preventDefault();
     document.addEventListener('contextmenu', preventDefault);
     document.addEventListener('copy', preventDefault);
@@ -255,17 +259,19 @@ const Exam = () => {
       document.removeEventListener('copy', preventDefault);
       document.removeEventListener('paste', preventDefault);
     };
-  }, []);
+  }, [waitingForExam, questions.length]);
 
   // Anti-cheat: warn before leaving page
   useEffect(() => {
+    if (waitingForExam || questions.length === 0) return;
+
     const handleBeforeUnload = (e) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  }, [waitingForExam, questions.length]);
 
   // Global Timer Setup
   useEffect(() => {
