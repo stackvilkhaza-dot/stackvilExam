@@ -75,7 +75,28 @@ const CodingRound = () => {
   const [stream, setStream] = useState(null);
   const [cameraError, setCameraError] = useState('');
   const [timeLeft, setTimeLeft] = useState(null);
+  const [refViewMode, setRefViewMode] = useState('live');
+  const [isFullscreenTarget, setIsFullscreenTarget] = useState(false);
+  const [isFullscreenCandidatePreview, setIsFullscreenCandidatePreview] = useState(false);
   const peerConnection = useRef(null);
+
+  const getRefPreviewDoc = (html, css) => {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { margin: 0; padding: 15px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+          ${css || ''}
+        </style>
+      </head>
+      <body>
+        ${html || ''}
+      </body>
+      </html>
+    `;
+  };
 
   const candidateInfo = JSON.parse(localStorage.getItem('candidateInfo'));
 
@@ -324,6 +345,16 @@ const CodingRound = () => {
     return () => clearTimeout(timer);
   }, [htmlCode, cssCode, uiuxAnalysis, socket, candidateInfo]);
 
+  useEffect(() => {
+    if (currentChallenge) {
+      if (currentChallenge.referenceHtml) {
+        setRefViewMode('live');
+      } else {
+        setRefViewMode('image');
+      }
+    }
+  }, [currentIndex, currentChallenge]);
+
   const formatTime = (seconds) => {
     if (seconds === null) return '--:--:--';
     const h = Math.floor(seconds / 3600);
@@ -425,18 +456,69 @@ const CodingRound = () => {
               <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">{currentChallenge.description}</p>
             </div>
 
-            {currentChallenge.referenceImage && (
-              <div className="mt-4">
+            {/* Reference Source Selection Tabs */}
+            {(currentChallenge.referenceImage || currentChallenge.referenceHtml) && (
+              <div className="mt-4 border-t border-gray-700 pt-4">
                 <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
                   {currentChallenge.challengeType === 'UIUXRedesign' ? 'Poor UI Design' : 'Reference Design'}
                 </h3>
-                <SecureImage 
-                  src={`${import.meta.env.VITE_IMAGE_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
-                  alt="Reference Design" 
-                  className="w-full h-auto rounded shadow-lg border border-gray-600 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => setIsFullscreenImage(true)}
-                  title="Click to view full screen"
-                />
+                
+                {currentChallenge.referenceImage && currentChallenge.referenceHtml && (
+                  <div className="flex bg-gray-900/50 p-1 rounded-lg border border-gray-700 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setRefViewMode('live')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
+                        refViewMode === 'live' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Target Output (Live)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefViewMode('image')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
+                        refViewMode === 'image' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Reference Image
+                    </button>
+                  </div>
+                )}
+
+                {refViewMode === 'live' && currentChallenge.referenceHtml ? (
+                  <div className="w-full mb-4">
+                    <div className="flex justify-between items-center bg-gray-700/50 px-3 py-1.5 rounded-t-lg border-t border-x border-gray-600">
+                      <span className="text-xs text-gray-300 font-semibold uppercase tracking-wide">Interactive Preview Target</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsFullscreenTarget(true)}
+                        className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-[10px] font-bold shadow-sm transition-colors"
+                      >
+                        🔍 Fullscreen
+                      </button>
+                    </div>
+                    <div className="w-full h-[400px] bg-white rounded-b-lg shadow-lg border border-gray-600 overflow-hidden">
+                      <iframe
+                        key={currentChallenge.referenceHtml + currentChallenge.referenceCss}
+                        srcDoc={getRefPreviewDoc(currentChallenge.referenceHtml, currentChallenge.referenceCss)}
+                        title="Target Output Live"
+                        sandbox="allow-scripts"
+                        className="w-full h-full border-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  currentChallenge.referenceImage && (
+                    <SecureImage 
+                      src={`${import.meta.env.VITE_IMAGE_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
+                      alt="Reference Design" 
+                      className="w-full h-auto rounded shadow-lg border border-gray-600 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setIsFullscreenImage(true)}
+                      title="Click to view full screen"
+                    />
+                  )
+                )}
               </div>
             )}
 
@@ -497,10 +579,20 @@ const CodingRound = () => {
               <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
               Live Output
             </span>
+            {previewOutput && (
+              <button
+                type="button"
+                onClick={() => setIsFullscreenCandidatePreview(true)}
+                className="px-2 py-1 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded text-[10px] font-bold shadow-sm transition-colors"
+              >
+                🔍 Fullscreen
+              </button>
+            )}
           </div>
           <div className="flex-1 relative">
             {previewOutput ? (
               <iframe
+                key={previewOutput}
                 srcDoc={previewOutput}
                 title="Live Preview"
                 sandbox="allow-scripts"
@@ -536,6 +628,62 @@ const CodingRound = () => {
           >
             &times;
           </button>
+        </div>
+      )}
+
+      {/* Full Screen Live Target Modal */}
+      {isFullscreenTarget && currentChallenge?.referenceHtml && (
+        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex flex-col p-4">
+          <div className="flex justify-between items-center mb-3 px-2">
+            <h3 className="text-white font-bold">Fullscreen Target Reference</h3>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsFullscreenTarget(false);
+              }}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold text-sm transition-colors shadow-lg"
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 bg-white rounded-lg overflow-hidden shadow-2xl">
+            <iframe
+              srcDoc={isFullscreenTarget ? getRefPreviewDoc(currentChallenge.referenceHtml, currentChallenge.referenceCss) : ''}
+              title="Fullscreen Target Reference"
+              sandbox="allow-scripts"
+              className="w-full h-full border-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Full Screen Candidate Preview Modal */}
+      {isFullscreenCandidatePreview && previewOutput && (
+        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex flex-col p-4">
+          <div className="flex justify-between items-center mb-3 px-2">
+            <h3 className="text-white font-bold">Fullscreen Live Output</h3>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsFullscreenCandidatePreview(false);
+              }}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold text-sm transition-colors shadow-lg"
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 bg-white rounded-lg overflow-hidden shadow-2xl">
+            <iframe
+              srcDoc={isFullscreenCandidatePreview ? previewOutput : ''}
+              title="Fullscreen Live Output"
+              sandbox="allow-scripts"
+              className="w-full h-full border-none"
+            />
+          </div>
         </div>
       )}
     </div>
