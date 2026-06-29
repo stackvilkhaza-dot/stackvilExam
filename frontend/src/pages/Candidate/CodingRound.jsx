@@ -411,14 +411,6 @@ const CodingRound = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col relative">
-      {/* Local Video Feed */}
-      <div className="fixed bottom-6 left-6 w-48 h-32 bg-black rounded-lg shadow-2xl border-2 border-gray-700 overflow-hidden z-50">
-        <VideoPlayer stream={stream} />
-        <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/60 px-2 py-1 rounded text-white text-xs font-bold">
-          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-          <span>REC</span>
-        </div>
-      </div>
       {/* Header */}
       <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md">
         <div>
@@ -446,6 +438,17 @@ const CodingRound = () => {
         {/* Left Pane: Info & Reference */}
         <div className="w-1/3 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
           <div className="p-6">
+            {/* Local Video Feed - Sits cleanly inside layout flow */}
+            {stream && (
+              <div className="w-48 h-32 bg-black rounded-lg shadow-md border border-gray-750 overflow-hidden relative mb-6">
+                <VideoPlayer stream={stream} />
+                <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black/60 px-2 py-1 rounded text-white text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                  <span>REC</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-bold text-blue-400">{currentChallenge.title}</h2>
               <span className="bg-blue-900 px-3 py-1 rounded-full text-xs font-bold">{currentChallenge.marks} Marks</span>
