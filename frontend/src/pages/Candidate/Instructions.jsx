@@ -43,7 +43,29 @@ const Instructions = () => {
         elem.requestFullscreen().catch((err) => console.log(err));
       }
 
-      navigate('/coding-round');
+      // Dynamic routing based on assigned rounds
+      let hasMCQs = false;
+      let hasCoding = false;
+
+      try {
+        const mcqRes = await api.get(`/exam/questions?email=${encodeURIComponent(data.email)}`);
+        if (mcqRes.data && mcqRes.data.length > 0) {
+          hasMCQs = true;
+        }
+      } catch (mcqErr) {}
+
+      try {
+        const codingRes = await api.get(`/exam/my-challenges?email=${encodeURIComponent(data.email)}`);
+        if (codingRes.data && codingRes.data.length > 0) {
+          hasCoding = true;
+        }
+      } catch (codingErr) {}
+
+      if (hasCoding && !hasMCQs) {
+        navigate('/coding-round');
+      } else {
+        navigate('/exam');
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Invalid email or password');
     } finally {

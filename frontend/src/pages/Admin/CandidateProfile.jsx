@@ -14,22 +14,40 @@ const CandidateProfile = () => {
   const [uploadingR1, setUploadingR1] = useState(false);
   const [uploadingR2, setUploadingR2] = useState(false);
   const [isCodingReady, setIsCodingReady] = useState(false);
+  const [result, setResult] = useState(null);
 
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const [candRes, assignRes] = await Promise.all([
+      const [candRes, assignRes, resultsRes] = await Promise.all([
         api.get(`/admin/candidates/${id}`),
-        api.get('/admin/assignments')
+        api.get('/admin/assignments'),
+        api.get('/admin/results')
       ]);
       
       setCandidate(candRes.data);
       const candAssignment = assignRes.data.find(a => a.candidateEmail === candRes.data.email);
       setAssignment(candAssignment || null);
+      
+      const candResult = resultsRes.data.find(r => r.candidateEmail === candRes.data.email);
+      setResult(candResult || null);
     } catch (error) {
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReconduct = async () => {
+    if (!result) return;
+    if (window.confirm(`Are you sure you want to reset the exam for ${candidate.name}? This will delete all their current answers and submissions, allowing them to retake the exam.`)) {
+      try {
+        await api.delete(`/admin/results/${result._id}`);
+        toast.success('Exam reset successfully. The candidate can now log in and retake the exam.');
+        fetchProfile();
+      } catch (err) {
+        toast.error('Failed to reset exam');
+      }
     }
   };
 
@@ -93,6 +111,15 @@ const CandidateProfile = () => {
           <h1 className="text-2xl font-bold text-gray-900">{candidate.name}'s Profile</h1>
           <p className="text-gray-500">{candidate.email}</p>
         </div>
+        {result && (
+          <button 
+            onClick={handleReconduct} 
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3m0 0l3 3m-3-3v12"></path></svg>
+            Reconduct Exam (Reset)
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -135,6 +162,14 @@ const CandidateProfile = () => {
                   (Control exams globally from the Dashboard)
                 </span>
               </div>
+            </div>
+          )}
+          {result && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 font-semibold">Exam Completed</p>
+              <p className="text-sm text-green-600 mt-1">
+                Candidate submitted the exam on {new Date(result.submittedAt).toLocaleString()}.
+              </p>
             </div>
           )}
         </div>

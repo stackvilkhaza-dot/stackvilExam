@@ -148,7 +148,7 @@ const CodingChallengeManager = ({ candidateId, onStatusChange }) => {
                 {c.referenceImage ? (
                   <div className="mt-2">
                     <p className="text-xs text-green-600 mb-1">Image Uploaded Successfully</p>
-                    <img src={`${import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:5000'}${c.referenceImage}`} alt="Reference" className="max-h-40 object-contain border rounded shadow-sm" />
+                    <img src={`${import.meta.env.VITE_IMAGE_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${c.referenceImage}`} alt="Reference" className="max-h-40 object-contain border rounded shadow-sm" />
                   </div>
                 ) : (
                   <p className="text-sm text-red-500 italic">No image uploaded yet. Candidate will not see a reference image.</p>

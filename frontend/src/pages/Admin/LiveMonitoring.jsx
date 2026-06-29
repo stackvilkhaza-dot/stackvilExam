@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
-const CandidateVideo = ({ candidate, socket }) => {
+const CandidateVideo = ({ candidate, socket, onInspectCode }) => {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const peerConnection = useRef(null);
@@ -94,6 +94,13 @@ const CandidateVideo = ({ candidate, socket }) => {
     }
   };
 
+  const handleForceLogout = () => {
+    if (window.confirm(`Are you sure you want to force logout candidate ${candidate.name}?`)) {
+      socket.emit('force-logout-candidate', { targetSocketId: candidate.socketId });
+      toast.success(`Force logout command sent to ${candidate.name}`);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-700 flex flex-col group h-64">
       <div className="absolute top-0 left-0 w-full p-3 bg-gradient-to-b from-black/90 to-transparent z-10 flex justify-between items-start">
@@ -106,15 +113,35 @@ const CandidateVideo = ({ candidate, socket }) => {
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
             <span className="text-[10px] text-white font-medium uppercase tracking-wider">Live</span>
           </div>
-          <button 
-            onClick={toggleFullscreen}
-            className="text-white hover:text-blue-400 bg-black/50 hover:bg-black/80 rounded p-1.5 transition-all opacity-0 group-hover:opacity-100"
-            title="Toggle Fullscreen"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
-            </svg>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => onInspectCode(candidate)}
+              className="text-white hover:text-green-400 bg-black/50 hover:bg-black/80 rounded p-1.5 transition-all opacity-0 group-hover:opacity-100"
+              title="Inspect Live Code"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+              </svg>
+            </button>
+            <button 
+              onClick={handleForceLogout}
+              className="text-white hover:text-red-500 bg-black/50 hover:bg-black/80 rounded p-1.5 transition-all opacity-0 group-hover:opacity-100"
+              title="Force Logout Candidate"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+              </svg>
+            </button>
+            <button 
+              onClick={toggleFullscreen}
+              className="text-white hover:text-blue-400 bg-black/50 hover:bg-black/80 rounded p-1.5 transition-all opacity-0 group-hover:opacity-100"
+              title="Toggle Fullscreen"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
       <video 
@@ -129,12 +156,80 @@ const CandidateVideo = ({ candidate, socket }) => {
   );
 };
 
+const CodeInspectorModal = ({ candidate, code, onClose }) => {
+  const [activeTab, setActiveTab] = useState('html');
+
+  if (!candidate) return null;
+
+  const currentCode = code?.[activeTab] || '// No code written yet by candidate';
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-700 w-full max-w-4xl h-[80vh] rounded-xl flex flex-col shadow-2xl overflow-hidden">
+        {/* Modal Header */}
+        <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
+          <div>
+            <h3 className="text-white font-bold text-lg">Live Code Inspector: {candidate.name}</h3>
+            <p className="text-gray-400 text-xs">{candidate.email}</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-white p-1 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        {/* Tab Selectors */}
+        <div className="flex bg-gray-800/50 border-b border-gray-700">
+          <button 
+            onClick={() => setActiveTab('html')}
+            className={`px-6 py-3 font-semibold text-sm transition-colors border-r border-gray-700 ${activeTab === 'html' ? 'bg-gray-900 text-blue-400 border-t-2 border-blue-400' : 'text-gray-400 hover:bg-gray-850'}`}
+          >
+            HTML Output
+          </button>
+          <button 
+            onClick={() => setActiveTab('css')}
+            className={`px-6 py-3 font-semibold text-sm transition-colors border-r border-gray-700 ${activeTab === 'css' ? 'bg-gray-900 text-pink-400 border-t-2 border-pink-400' : 'text-gray-400 hover:bg-gray-850'}`}
+          >
+            CSS Styles
+          </button>
+          <button 
+            onClick={() => setActiveTab('uiuxAnalysis')}
+            className={`px-6 py-3 font-semibold text-sm transition-colors border-r border-gray-700 ${activeTab === 'uiuxAnalysis' ? 'bg-gray-900 text-purple-400 border-t-2 border-purple-400' : 'text-gray-400 hover:bg-gray-850'}`}
+          >
+            UI/UX Analysis
+          </button>
+        </div>
+
+        {/* Code Pane */}
+        <div className="flex-1 p-4 overflow-auto bg-gray-950">
+          {activeTab === 'uiuxAnalysis' ? (
+            <textarea 
+              readOnly 
+              value={currentCode}
+              placeholder="Candidate has not written any UI/UX analysis yet..."
+              className="w-full h-full bg-transparent text-gray-200 resize-none outline-none font-sans leading-relaxed"
+            />
+          ) : (
+            <pre className="font-mono text-sm text-green-400 whitespace-pre-wrap select-all">
+              <code>{currentCode}</code>
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LiveMonitoring = () => {
   const [candidates, setCandidates] = useState([]);
   const [socket, setSocket] = useState(null);
+  const [liveCodes, setLiveCodes] = useState({});
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     const newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
     setSocket(newSocket);
 
@@ -167,6 +262,17 @@ const LiveMonitoring = () => {
       toast.error(`⚠️ ALERT: ${info.name} (${info.email}) switched tabs at ${info.time}!`, { duration: 8000 });
     });
 
+    newSocket.on('candidate-code-update', (data) => {
+      setLiveCodes(prev => ({
+        ...prev,
+        [data.email]: {
+          html: data.html,
+          css: data.css,
+          uiuxAnalysis: data.uiuxAnalysis
+        }
+      }));
+    });
+
     return () => newSocket.close();
   }, []);
 
@@ -185,6 +291,20 @@ const LiveMonitoring = () => {
                {candidates.length}
              </span>
           </h2>
+          {candidates.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm("WARNING: Are you sure you want to force logout ALL candidates currently writing the exam? This will wipe their timers and candidates will have to log in again.")) {
+                  socket.emit('force-logout-all');
+                  toast.success('Sent force logout command to all candidates');
+                }
+              }}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+              <span>Logout All Candidates</span>
+            </button>
+          )}
         </div>
         
         <div className="p-6 bg-gray-50/50 min-h-[400px]">
@@ -207,12 +327,19 @@ const LiveMonitoring = () => {
                   key={candidate.socketId} 
                   candidate={candidate} 
                   socket={socket} 
+                  onInspectCode={setSelectedCandidate}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <CodeInspectorModal 
+        candidate={selectedCandidate} 
+        code={liveCodes[selectedCandidate?.email]} 
+        onClose={() => setSelectedCandidate(null)} 
+      />
     </div>
   );
 };

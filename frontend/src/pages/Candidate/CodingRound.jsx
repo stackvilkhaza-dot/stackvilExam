@@ -96,7 +96,7 @@ const CodingRound = () => {
 
         setStream(localStream);
 
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
         newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
         setSocket(newSocket);
 
@@ -147,6 +147,18 @@ const CodingRound = () => {
               console.error("Error adding ice candidate", e);
             }
           }
+        });
+
+        newSocket.on('force-logout', () => {
+          localStorage.removeItem('candidateInfo');
+          localStorage.removeItem('examEndTime');
+          localStorage.removeItem('examProgress');
+          if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+          }
+          newSocket.close();
+          toast.error('You have been logged out by the Administrator.', { duration: 10000 });
+          navigate('/');
         });
 
       } catch (err) {
@@ -296,6 +308,22 @@ const CodingRound = () => {
     return () => clearInterval(timerInterval);
   }, [challenges.length]);
 
+  // Real-time Code Mirroring to Admin
+  useEffect(() => {
+    if (!socket || !candidateInfo) return;
+
+    const timer = setTimeout(() => {
+      socket.emit('candidate-code-update', {
+        email: candidateInfo.email,
+        html: htmlCode,
+        css: cssCode,
+        uiuxAnalysis: uiuxAnalysis
+      });
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timer);
+  }, [htmlCode, cssCode, uiuxAnalysis, socket, candidateInfo]);
+
   const formatTime = (seconds) => {
     if (seconds === null) return '--:--:--';
     const h = Math.floor(seconds / 3600);
@@ -403,7 +431,7 @@ const CodingRound = () => {
                   {currentChallenge.challengeType === 'UIUXRedesign' ? 'Poor UI Design' : 'Reference Design'}
                 </h3>
                 <SecureImage 
-                  src={`${import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
+                  src={`${import.meta.env.VITE_IMAGE_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
                   alt="Reference Design" 
                   className="w-full h-auto rounded shadow-lg border border-gray-600 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => setIsFullscreenImage(true)}
@@ -495,7 +523,7 @@ const CodingRound = () => {
           onClick={() => setIsFullscreenImage(false)}
         >
           <SecureImage 
-            src={`${import.meta.env.VITE_IMAGE_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
+            src={`${import.meta.env.VITE_IMAGE_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${currentChallenge.referenceImage}`} 
             alt="Full Screen Reference" 
             className="max-w-full max-h-full object-contain shadow-2xl rounded"
           />

@@ -44,6 +44,7 @@ const Exam = () => {
   const [serverMessage, setServerMessage] = useState('');
   const [currentRound, setCurrentRound] = useState(1);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [hasCoding, setHasCoding] = useState(false);
 
   // Camera state
   const [stream, setStream] = useState(null);
@@ -86,12 +87,18 @@ const Exam = () => {
       // Exit fullscreen (Optional: might want to stay in fullscreen for coding round)
       // Since coding round is still part of the exam, we shouldn't exit fullscreen yet.
       
-      navigate('/coding-round');
+      if (hasCoding) {
+        navigate('/coding-round');
+      } else {
+        localStorage.removeItem('examEndTime');
+        localStorage.removeItem('candidateInfo');
+        navigate('/submitted');
+      }
     } catch (error) {
       toast.error('Failed to submit exam. Please try again.');
       setIsSubmitting(false);
     }
-  }, [answers, candidateInfo, isSubmitting, navigate, questions]);
+  }, [answers, candidateInfo, isSubmitting, navigate, questions, hasCoding]);
 
   useEffect(() => {
     if (!candidateInfo) {
@@ -119,6 +126,14 @@ const Exam = () => {
             setCurrentRound(savedRound || 1);
             setLoading(false);
             setWaitingForExam(false);
+
+            // Check coding challenges even for cache hit
+            try {
+              const checkRes = await api.get(`/exam/my-challenges?email=${encodeURIComponent(candidateInfo.email)}`);
+              if (checkRes.data && checkRes.data.length > 0) {
+                setHasCoding(true);
+              }
+            } catch (e) {}
             return;
           } else if (isInvalidCache) {
             localStorage.removeItem('examProgress');
@@ -133,6 +148,14 @@ const Exam = () => {
         setQuestions(randomizedQuestions);
         setLoading(false);
         setWaitingForExam(false);
+
+        // Fetch coding challenges to check if candidate has Round 3
+        try {
+          const checkRes = await api.get(`/exam/my-challenges?email=${encodeURIComponent(candidateInfo.email)}`);
+          if (checkRes.data && checkRes.data.length > 0) {
+            setHasCoding(true);
+          }
+        } catch (e) {}
       } catch (error) {
         if (error.response && error.response.status === 403) {
            if (error.response.data.message === 'NO EXAM IS CURRENTLY ASSIGNED.') {
@@ -286,7 +309,7 @@ const Exam = () => {
 
         setStream(localStream);
 
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
         newSocket = io(socketUrl, { extraHeaders: { 'ngrok-skip-browser-warning': 'true' } });
         setSocket(newSocket);
 
@@ -337,6 +360,18 @@ const Exam = () => {
               console.error("Error adding ice candidate", e);
             }
           }
+        });
+
+        newSocket.on('force-logout', () => {
+          localStorage.removeItem('candidateInfo');
+          localStorage.removeItem('examEndTime');
+          localStorage.removeItem('examProgress');
+          if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+          }
+          newSocket.close();
+          toast.error('You have been logged out by the Administrator.', { duration: 10000 });
+          navigate('/');
         });
 
       } catch (err) {
