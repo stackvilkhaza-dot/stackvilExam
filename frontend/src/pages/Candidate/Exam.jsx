@@ -76,22 +76,20 @@ const Exam = () => {
 
     try {
       await api.post('/exam/submit', {
-        candidateName: candidateInfo.name,
-        candidateEmail: candidateInfo.email,
-        answers: formattedAnswers
+        candidateName: candidateInfo?.name,
+        candidateEmail: candidateInfo?.email,
+        answers: formattedAnswers,
+        tabSwitches: JSON.parse(localStorage.getItem('tabSwitchHistory') || '[]')
       });
       
       localStorage.removeItem('examProgress');
-      // Keep candidateInfo for coding round
       
-      // Exit fullscreen (Optional: might want to stay in fullscreen for coding round)
-      // Since coding round is still part of the exam, we shouldn't exit fullscreen yet.
-      
-      if (hasCoding) {
+      if (hasCoding && !isForced) {
         navigate('/coding-round');
       } else {
         localStorage.removeItem('examEndTime');
         localStorage.removeItem('candidateInfo');
+        localStorage.removeItem('tabSwitchHistory');
         navigate('/submitted');
       }
     } catch (error) {
@@ -215,11 +213,27 @@ const Exam = () => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.error('Warning: Tab switching is not allowed!', { duration: 5000 });
+        
+        // Log tab switch event in localStorage
+        const history = JSON.parse(localStorage.getItem('tabSwitchHistory') || '[]');
+        const timeStr = new Date().toLocaleTimeString();
+        history.push({ time: timeStr, round: 'MCQ (Round 1 & 2)', timestamp: Date.now() });
+        localStorage.setItem('tabSwitchHistory', JSON.stringify(history));
+
+        if (candidateInfo) {
+          // Log tab switch to backend if supported
+          api.post('/exam/log-tab-switch', {
+            email: candidateInfo.email,
+            time: timeStr,
+            round: 'MCQ (Round 1 & 2)'
+          }).catch(() => {});
+        }
+
         if (socket && candidateInfo) {
           socket.emit('tab-switched', {
             name: candidateInfo.name,
             email: candidateInfo.email,
-            time: new Date().toLocaleTimeString()
+            time: timeStr
           });
         }
       }
@@ -259,7 +273,7 @@ const Exam = () => {
 
     let endTime = parseInt(localStorage.getItem('examEndTime'));
     if (!endTime || isNaN(endTime)) {
-      endTime = Date.now() + 3 * 60 * 60 * 1000; // 3 hours from now
+      endTime = Date.now() + (1 * 60 * 60 * 1000) + (30 * 60 * 1000); // 1 hour 30 minutes
       localStorage.setItem('examEndTime', endTime.toString());
     }
 

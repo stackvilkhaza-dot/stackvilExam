@@ -204,11 +204,27 @@ const CodingRound = () => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.error('Warning: Tab switching is not allowed!', { duration: 5000 });
+        
+        // Log tab switch event in localStorage
+        const history = JSON.parse(localStorage.getItem('tabSwitchHistory') || '[]');
+        const timeStr = new Date().toLocaleTimeString();
+        history.push({ time: timeStr, round: 'Web Design (Round 3)', timestamp: Date.now() });
+        localStorage.setItem('tabSwitchHistory', JSON.stringify(history));
+
+        if (candidateInfo) {
+          // Log tab switch to backend if supported
+          api.post('/exam/log-tab-switch', {
+            email: candidateInfo.email,
+            time: timeStr,
+            round: 'Web Design (Round 3)'
+          }).catch(() => {});
+        }
+
         if (socket && candidateInfo) {
           socket.emit('tab-switched', {
             name: candidateInfo.name,
             email: candidateInfo.email,
-            time: new Date().toLocaleTimeString()
+            time: timeStr
           });
         }
       }
@@ -275,12 +291,13 @@ const CodingRound = () => {
         challengeId: currentChallenge._id,
         uiuxAnalysis: currentChallenge.challengeType === 'UIUXRedesign' ? uiuxAnalysis : '',
         submittedHtml: htmlCode,
-        submittedCss: cssCode
+        submittedCss: cssCode,
+        tabSwitches: JSON.parse(localStorage.getItem('tabSwitchHistory') || '[]')
       });
       
       toast.success('Challenge submitted!');
       
-      if (currentIndex + 1 < challenges.length) {
+      if (currentIndex + 1 < challenges.length && !isForced) {
         setCurrentIndex(currentIndex + 1);
         setHtmlCode('');
         setCssCode('');
@@ -292,6 +309,7 @@ const CodingRound = () => {
         localStorage.removeItem('examEndTime');
         localStorage.removeItem('candidateInfo');
         localStorage.removeItem('examProgress');
+        localStorage.removeItem('tabSwitchHistory');
         navigate('/submitted');
       }
     } catch (err) {
@@ -307,7 +325,7 @@ const CodingRound = () => {
 
     let endTime = parseInt(localStorage.getItem('examEndTime'));
     if (!endTime || isNaN(endTime)) {
-      endTime = Date.now() + 3 * 60 * 60 * 1000;
+      endTime = Date.now() + (1 * 60 * 60 * 1000) + (30 * 60 * 1000); // 1 hour 30 minutes
       localStorage.setItem('examEndTime', endTime.toString());
     }
 

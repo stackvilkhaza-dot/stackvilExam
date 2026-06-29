@@ -74,6 +74,7 @@ const Instructions = () => {
   };
 
   const guidelines = [
+    "The total duration for all rounds is 1 Hour 30 Minutes. You must complete and submit the exam before this time expires.",
     "Complete all three assessment rounds in the given order.",
     "Do not refresh, close, or navigate away from the assessment page during the exam.",
     "Ensure you have a stable internet connection before starting.",
