@@ -130,7 +130,7 @@ const CandidateProfile = () => {
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-800 font-medium">Setup Checklist</p>
             <p className="text-sm text-yellow-600 mt-1 mb-3">
-              You must upload both PDFs and Save all 3 Web Design Challenges before you can start the exam.
+              Upload the PDFs (Round 1 & 2) and save all 3 Web Design Challenges. Candidates taking ONLY the Coding round can bypass the PDF uploads.
             </p>
             <div className="flex justify-between text-xs font-semibold">
               <span className={`px-2 py-1 rounded ${isRound1Ready ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>Round 1: {isRound1Ready ? 'Ready' : 'Missing'}</span>
