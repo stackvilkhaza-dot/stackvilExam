@@ -52,14 +52,26 @@ const Instructions = () => {
         if (mcqRes.data && mcqRes.data.length > 0) {
           hasMCQs = true;
         }
-      } catch (mcqErr) {}
+      } catch (mcqErr) {
+        // If 403 because it's not live yet, it is still assigned
+        if (mcqErr.response && mcqErr.response.status === 403 && 
+            mcqErr.response.data.message === "THE EXAM HAS NOT BEEN STARTED BY THE ADMINISTRATOR YET. PLEASE WAIT.") {
+          hasMCQs = true;
+        }
+      }
 
       try {
         const codingRes = await api.get(`/exam/my-challenges?email=${encodeURIComponent(data.email)}`);
         if (codingRes.data && codingRes.data.length > 0) {
           hasCoding = true;
         }
-      } catch (codingErr) {}
+      } catch (codingErr) {
+        // If 403 because it's not live yet, it is still assigned
+        if (codingErr.response && codingErr.response.status === 403 && 
+            codingErr.response.data.message === "THE EXAM HAS NOT BEEN STARTED BY THE ADMINISTRATOR YET. PLEASE WAIT.") {
+          hasCoding = true;
+        }
+      }
 
       if (hasCoding && !hasMCQs) {
         navigate('/coding-round');

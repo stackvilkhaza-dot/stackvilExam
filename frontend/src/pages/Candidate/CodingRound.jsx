@@ -76,6 +76,8 @@ const CodingRound = () => {
   const [cameraError, setCameraError] = useState('');
   const [timeLeft, setTimeLeft] = useState(null);
   const [refViewMode, setRefViewMode] = useState('live');
+  const [waitingForExam, setWaitingForExam] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
   const [isFullscreenTarget, setIsFullscreenTarget] = useState(false);
   const [isFullscreenCandidatePreview, setIsFullscreenCandidatePreview] = useState(false);
   const peerConnection = useRef(null);
@@ -246,15 +248,29 @@ const CodingRound = () => {
       try {
         const res = await api.get(`/exam/my-challenges?email=${candidateInfo.email}`);
         setChallenges(res.data);
+        setWaitingForExam(false);
       } catch (err) {
-        toast.error('Failed to load coding challenges');
+        if (err.response && err.response.status === 403) {
+          setServerMessage(err.response.data.message);
+          setWaitingForExam(true);
+        } else {
+          toast.error('Failed to load coding challenges');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchChallenges();
-  }, [navigate]);
+
+    const interval = setInterval(() => {
+      if (waitingForExam || challenges.length === 0) {
+        fetchChallenges();
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [navigate, waitingForExam, challenges.length]);
 
   const currentChallenge = challenges[currentIndex];
 
@@ -404,6 +420,24 @@ const CodingRound = () => {
           <p className="text-gray-400">Please click "Allow" on the camera permission prompt to start your coding round.</p>
           <div className="mt-8 flex justify-center">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (waitingForExam) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md p-8 border border-yellow-500 bg-gray-800 rounded-2xl shadow-xl">
+          <div className="w-16 h-16 bg-yellow-500/10 text-yellow-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m4-6a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-4 text-yellow-500">Exam Status</h2>
+          <p className="text-gray-300 leading-relaxed mb-6 font-semibold uppercase">{serverMessage}</p>
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+            <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full animate-ping"></div>
+            <span>Checking exam status automatically...</span>
           </div>
         </div>
       </div>
